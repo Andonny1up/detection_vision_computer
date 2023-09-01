@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 
 # cap = cv.VideoCapture(0)
-cap = cv.VideoCapture("rtsp://admin:12345@192.168.14.251/stream")
+cap = cv.VideoCapture("./resource/bridge.mp4")
 wh_t = 320
 conf_threshold = 0.5
 nms_my_threshold = 0.3
@@ -13,7 +13,8 @@ with open(classes_file,'rt') as f:
     class_names = f.read().rstrip('\n').split('\n')
 
 # print(class_names)
-
+# my variable
+vehicle_count = 0
 # Mas precicion menos velocidad
 model_configuration = './yolov3.cfg'
 model_weights = './yolov3.weights'
@@ -27,8 +28,24 @@ net = cv.dnn.readNetFromDarknet(model_configuration,model_weights)
 net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
 net.setPreferableTarget(cv.dnn.DNN_TARGET_CPU)
 
+def find_center(x,y,width,height):
+    """X: posicion en el eje x
+    Y: posicon en el eje y
+    Devuelve el punto del centro
+    """
+    x_1 = width // 2
+    y_1 = height // 2
+    
+    c_x = x+ x_1
+    c_y = y+ y_1
+    
+    return c_x,c_y
+
 
 def findObjects(outputs,img):
+    """"
+    img: frame o fotogramas de un video
+    Detecta los objetos en videos"""
     hT, wT, cT = img.shape
     bbox = []
     classIds = []
@@ -40,11 +57,13 @@ def findObjects(outputs,img):
             classId = np.argmax(scores)
             confidence = scores[classId]
             if confidence > conf_threshold:
-                w,h = int(det[2]*wT),int(det[3]*hT)
-                x,y = int((det[0]*wT) -w/2), int((det[1]*hT) -h/2)
-                bbox.append([x,y,w,h])
-                classIds.append(classId)
-                confs.append(float(confidence))
+                class_name = class_names[classId]
+                if class_name in ["car", "bicycle", "truck", "motorbike", "bus"]:
+                    w,h = int(det[2]*wT),int(det[3]*hT)
+                    x,y = int((det[0]*wT) -w/2), int((det[1]*hT) -h/2)
+                    bbox.append([x,y,w,h])
+                    classIds.append(classId)
+                    confs.append(float(confidence))
         
     # print(len(bbox))
     indices = cv.dnn.NMSBoxes(bbox,confs,conf_threshold,nms_my_threshold)
